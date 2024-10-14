@@ -1,0 +1,64 @@
+version: "3.9"
+services:
+  grafana:
+    image: grafana/grafana
+    container_name: grafana
+    restart: unless-stopped
+    ports:
+      - 80:3000
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_LOG_LEVEL=debug
+    volumes:
+      - './grafana:/var/lib/grafana'
+
+  prometheus:
+    image: prom/prometheus
+    ports:
+      - 9090:9090
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+
+  postgres:
+    image: postgres:latest
+    ports:
+      - 5432:5432
+    volumes:
+      - ./backup:/var/lib/postgresql/data
+    environment:
+      POSTGRES_PASSWORD: postgrespassword
+      POSTGRES_DB: shop
+  
+  mysql:
+    image: mysql:5.7.44
+    ports:
+      - 3306:3306
+    volumes:
+      - ./mysql-db:/var/lib/mysql
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    environment:
+      MYSQL_DATABASE: sisca
+      MYSQL_ROOT_PASSWORD: s4ntyL0pez
+
+  postgres-exporter:
+    image: prometheuscommunity/postgres-exporter
+    ports:
+      - 9187:9187
+    environment:
+      DATA_SOURCE_NAME: "postgresql://postgres:postgrespassword@postgres:5432/shop?sslmode=disable"
+    links:
+      - postgres
+      - prometheus
+
+  mysql-exporter:
+    image: prom/mysqld-exporter
+    container_name: mysql-exporter
+    ports:
+      - 9104:9104
+    environment:
+      DATA_SOURCE_NAME: 'exporter:exporteradmin123@tcp(mysql:3306)/'
+    volumes:
+      - ./.my.cnf:/.my.cnf
+    depends_on:
+      - mysql
